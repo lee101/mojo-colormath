@@ -15,6 +15,7 @@ from colormath.color_objects import (
 from mojocolormath.color_conversions import convert_color, convert_color_array
 from mojocolormath import color_constants
 from mojocolormath._lib import check_status, lib
+from mojocolormath.color_exceptions import UndefinedConversionError
 from mojocolormath.color_objects import (
     LabColor,
     LCHabColor,
@@ -104,6 +105,11 @@ def test_scalar_lab_to_xyz_linear_branch_upstream_parity():
     assert np.allclose(
         actual.get_value_tuple(), expected.get_value_tuple(), rtol=2e-9, atol=2e-9
     )
+
+
+def test_scalar_lab_to_xyz_rejects_unsupported_rgb_type():
+    with pytest.raises(UndefinedConversionError):
+        convert_color(LabColor(50.0, 1.0, 2.0), XYZColor, through_rgb_type=object)
 
 
 @pytest.mark.parametrize(

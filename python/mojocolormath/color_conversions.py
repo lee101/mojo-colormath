@@ -64,7 +64,9 @@ def _convert_kernel(symbol, values, observer=None, illuminant=None):
 
 
 def Lab_to_XYZ(cobj, *args, **kwargs):
-    l, a, b = cobj.get_value_tuple()
+    l = cobj.lab_l
+    a = cobj.lab_a
+    b = cobj.lab_b
     y = (l + 16.0) / 116.0
     x = a / 500.0 + y
     z = y - b / 200.0
@@ -76,7 +78,7 @@ def Lab_to_XYZ(cobj, *args, **kwargs):
     x = x3 if x3 > epsilon else (x - offset) / 7.787
     y = y3 if y3 > epsilon else (y - offset) / 7.787
     z = z3 if z3 > epsilon else (z - offset) / 7.787
-    wx, wy, wz = _white(cobj.observer, cobj.illuminant)
+    wx, wy, wz = color_constants.ILLUMINANTS[cobj.observer][cobj.illuminant]
     return XYZColor._from_validated(
         wx * x,
         wy * y,
@@ -201,14 +203,16 @@ def convert_color(
     *args,
     **kwargs,
 ):
+    if color.__class__ is LabColor and target_cs is XYZColor:
+        if through_rgb_type is not sRGBColor:
+            raise UndefinedConversionError(color.__class__, target_cs)
+        return Lab_to_XYZ(color)
     if isinstance(target_cs, str) or not isinstance(target_cs, type):
         raise ValueError("target_cs parameter must be a Color object.")
     if not issubclass(target_cs, ColorBase):
         raise ValueError("target_cs parameter must be a Color object.")
     if through_rgb_type is not sRGBColor:
         raise UndefinedConversionError(color.__class__, target_cs)
-    if color.__class__ is LabColor and target_cs is XYZColor:
-        return Lab_to_XYZ(color)
     converted = color
     for function in _path(color.__class__, target_cs):
         converted = function(

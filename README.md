@@ -67,13 +67,13 @@ Linux 6.8.0-136-generic x86-64, against colormath 3.0.0:
 
 | case | mojo-colormath | colormath 3.0.0 | result |
 | --- | ---: | ---: | ---: |
-| CIE76, 1M Lab pairs | 3.99 ms | 75.72 ms | 18.98x faster |
-| CIE94, 1M Lab pairs | 13.69 ms | 218.03 ms | 15.92x faster |
-| CIEDE2000, 1M Lab pairs | 26.05 ms | 693.71 ms | 26.63x faster |
-| CMC(2:1), 1M Lab pairs | 19.51 ms | 264.83 ms | 13.57x faster |
-| Lab to XYZ, 100k colors | 1.15 ms | 1034.15 ms | 902.81x faster |
-| sRGB to Lab, 50k colors | 9.35 ms | 1531.90 ms | 163.77x faster |
-| Lab to XYZ, 20k scalar calls | 41.46 ms | 192.02 ms | 4.63x faster |
+| CIE76, 1M Lab pairs | 3.25 ms | 52.83 ms | 16.26x faster |
+| CIE94, 1M Lab pairs | 14.14 ms | 243.64 ms | 17.23x faster |
+| CIEDE2000, 1M Lab pairs | 20.80 ms | 695.44 ms | 33.43x faster |
+| CMC(2:1), 1M Lab pairs | 14.51 ms | 192.00 ms | 13.23x faster |
+| Lab to XYZ, 100k colors | 1.12 ms | 1028.62 ms | 918.09x faster |
+| sRGB to Lab, 50k colors | 9.33 ms | 1406.88 ms | 150.79x faster |
+| Lab to XYZ, 20k scalar calls | 23.39 ms | 197.92 ms | 8.46x faster |
 
 The delta-E rows compare the same vector-to-matrix API and identical NumPy
 inputs. Conversion batching is an extension: upstream exposes one color object
@@ -81,6 +81,12 @@ per call, so those rows include its unavoidable object and dispatch overhead.
 That distinction matters. The common scalar Lab-to-XYZ route stays in Python
 to avoid NumPy and FFI setup, while `convert_color_array` uses Mojo for batch
 work.
+
+No GPU path is included. CIEDE2000 has enough arithmetic intensity to be a
+plausible GPU kernel, but the profiled CPU implementation was already 52.51x
+faster than upstream before this optimization pass and therefore was outside
+the stated target set. The only eligible benchmark was scalar Lab-to-XYZ,
+whose object-heavy workload is not suitable for GPU execution.
 
 ## How it works
 
