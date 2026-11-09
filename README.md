@@ -63,17 +63,18 @@ to use a prebuilt library.
 ## Performance
 
 Measured with `pixi run bench` on an Intel Xeon E5-2697 v4 at 2.30 GHz,
-Linux 6.8.0-136-generic x86-64, against colormath 3.0.0:
+Linux 6.8.0-147-generic x86-64, against colormath 3.0.0 (VERIFY phase, 2026-11-09;
+see `bench/verify.md` for the full audit and repeat-run spread):
 
 | case | mojo-colormath | colormath 3.0.0 | result |
 | --- | ---: | ---: | ---: |
-| CIE76, 1M Lab pairs | 3.25 ms | 52.83 ms | 16.26x faster |
-| CIE94, 1M Lab pairs | 14.14 ms | 243.64 ms | 17.23x faster |
-| CIEDE2000, 1M Lab pairs | 20.80 ms | 695.44 ms | 33.43x faster |
-| CMC(2:1), 1M Lab pairs | 14.51 ms | 192.00 ms | 13.23x faster |
-| Lab to XYZ, 100k colors | 1.12 ms | 1028.62 ms | 918.09x faster |
-| sRGB to Lab, 50k colors | 9.33 ms | 1406.88 ms | 150.79x faster |
-| Lab to XYZ, 20k scalar calls | 23.39 ms | 197.92 ms | 8.46x faster |
+| CIE76, 1M Lab pairs | 3.11 ms | 52.83 ms | 16.99x faster |
+| CIE94, 1M Lab pairs | 14.14 ms | 193.02 ms | 13.65x faster |
+| CIEDE2000, 1M Lab pairs | 20.80 ms | 636.61 ms | 30.61x faster |
+| CMC(2:1), 1M Lab pairs | 14.85 ms | 181.51 ms | 12.22x faster |
+| Lab to XYZ, 100k colors | 1.11 ms | 995.13 ms | 896.51x faster |
+| sRGB to Lab, 50k colors | 9.12 ms | 1352.70 ms | 148.27x faster |
+| Lab to XYZ, 20k scalar calls | 22.16 ms | 194.79 ms | 8.79x faster |
 
 The delta-E rows compare the same vector-to-matrix API and identical NumPy
 inputs. Conversion batching is an extension: upstream exposes one color object
@@ -82,11 +83,11 @@ That distinction matters. The common scalar Lab-to-XYZ route stays in Python
 to avoid NumPy and FFI setup, while `convert_color_array` uses Mojo for batch
 work.
 
-No GPU path is included. CIEDE2000 has enough arithmetic intensity to be a
-plausible GPU kernel, but the profiled CPU implementation was already 52.51x
-faster than upstream before this optimization pass and therefore was outside
-the stated target set. The only eligible benchmark was scalar Lab-to-XYZ,
-whose object-heavy workload is not suitable for GPU execution.
+No GPU path is included. CIEDE2000 is arithmetically plausible on a GPU,
+but the profiled CPU implementation was already faster than upstream before
+the optimization pass and therefore was outside the stated target set. The
+only eligible benchmark was scalar Lab-to-XYZ, whose object-heavy workload
+is not suitable for GPU execution.
 
 ## How it works
 
