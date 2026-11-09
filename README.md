@@ -68,13 +68,13 @@ see `bench/verify.md` for the full audit and repeat-run spread):
 
 | case | mojo-colormath | colormath 3.0.0 | result |
 | --- | ---: | ---: | ---: |
-| CIE76, 1M Lab pairs | 3.11 ms | 52.83 ms | 16.99x faster |
-| CIE94, 1M Lab pairs | 14.14 ms | 193.02 ms | 13.65x faster |
-| CIEDE2000, 1M Lab pairs | 20.80 ms | 636.61 ms | 30.61x faster |
-| CMC(2:1), 1M Lab pairs | 14.85 ms | 181.51 ms | 12.22x faster |
-| Lab to XYZ, 100k colors | 1.11 ms | 995.13 ms | 896.51x faster |
-| sRGB to Lab, 50k colors | 9.12 ms | 1352.70 ms | 148.27x faster |
-| Lab to XYZ, 20k scalar calls | 22.16 ms | 194.79 ms | 8.79x faster |
+| CIE76, 1M Lab pairs | 3.56 ms | 66.43 ms | 18.66x faster |
+| CIE94, 1M Lab pairs | 14.24 ms | 217.73 ms | 15.29x faster |
+| CIEDE2000, 1M Lab pairs | 19.00 ms | 673.70 ms | 35.47x faster |
+| CMC(2:1), 1M Lab pairs | 15.06 ms | 182.34 ms | 12.11x faster |
+| Lab to XYZ, 100k colors | 1.29 ms | 1070.96 ms | 830.20x faster |
+| sRGB to Lab, 50k colors | 9.25 ms | 1582.15 ms | 171.06x faster |
+| Lab to XYZ, 20k scalar calls | 21.98 ms | 208.46 ms | 9.48x faster |
 
 The delta-E rows compare the same vector-to-matrix API and identical NumPy
 inputs. Conversion batching is an extension: upstream exposes one color object
