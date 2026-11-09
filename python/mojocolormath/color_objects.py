@@ -39,10 +39,14 @@ class IlluminantMixin:
 
     def get_illuminant_xyz(self, observer=None, illuminant=None):
         observer = self.observer if observer is None else str(observer)
+        try:
+            illums_observer = color_constants.ILLUMINANTS[observer]
+        except KeyError as exc:  # matches colormath.color_objects.IlluminantMixin.get_illuminant_xyz
+            raise InvalidObserverError(self) from exc
         illuminant = self.illuminant if illuminant is None else illuminant.lower()
         try:
-            x, y, z = color_constants.ILLUMINANTS[observer][illuminant]
-        except KeyError as exc:
+            x, y, z = illums_observer[illuminant]
+        except (KeyError, AttributeError) as exc:  # matches colormath.color_objects.IlluminantMixin.get_illuminant_xyz
             raise InvalidIlluminantError(illuminant) from exc
         return {"X": x, "Y": y, "Z": z}
 

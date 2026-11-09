@@ -40,6 +40,14 @@ def hue_degrees(y: Float64, x: Float64) -> Float64:
     return h
 
 
+def clip_min0(x: Float64) -> Float64:  # matches colormath.color_diff_matrix.delta_e_cie1994 (numpy clip(min=0))
+    return 0.0 if x < 0.0 else x
+
+
+def srgb_pow(v: Float64) -> Float64:  # matches colormath.color_conversions.RGB_to_XYZ (math.pow NaN semantics)
+    return v if v != v else v ** 2.4
+
+
 def cie2000_one(
     l1: Float64,
     a1: Float64,
@@ -97,7 +105,7 @@ def cie2000_one(
     var vl = dlp / (sl * kl)
     var vc = dcp / (sc * kc)
     var vh = dhp / (sh * kh)
-    return sqrt(max(0.0, vl * vl + vc * vc + vh * vh + rt * vc * vh))
+    return sqrt(vl * vl + vc * vc + vh * vh + rt * vc * vh)  # matches colormath.color_diff_matrix.delta_e_cie2000 (no clip)
 
 
 def cie2000_range(
@@ -165,9 +173,7 @@ def cie2000_range(
         var vc = dcp / (sc * kc)
         var vh = dhp / (sh * kh)
         var distance2 = vl * vl + vc * vc + vh * vh + rt * vc * vh
-        dst.store(
-            i, sqrt(max(distance2, SIMD[DType.float64, W](0.0)))
-        )
+        dst.store(i, sqrt(distance2))  # matches colormath.color_diff_matrix.delta_e_cie2000 (no clip)
         i += W
     while i < end:
         var j = 3 * i
@@ -236,7 +242,7 @@ def mcm_delta_e_cie1994(
         var c2 = sqrt(samples[j + 1] * samples[j + 1] + samples[j + 2] * samples[j + 2])
         var dc = c1 - c2
         var dh2 = da * da + db * db - dc * dc
-        var dh = sqrt(max(0.0, dh2))
+        var dh = sqrt(clip_min0(dh2))  # matches colormath.color_diff_matrix.delta_e_cie1994 (clip(min=0))
         dst[i] = sqrt(sq(dl / kl) + sq(dc / (kc * sc)) + sq(dh / (kh * sh)))
     return 0
 
@@ -281,7 +287,7 @@ def mcm_delta_e_cmc(
         var db = refp[2] - samples[j + 2]
         var c2 = sqrt(samples[j + 1] * samples[j + 1] + samples[j + 2] * samples[j + 2])
         var dc = c1 - c2
-        var dh = sqrt(max(0.0, da * da + db * db - dc * dc))
+        var dh = sqrt(clip_min0(da * da + db * db - dc * dc))  # matches colormath.color_diff_matrix.delta_e_cmc (clip(min=0))
         dst[i] = sqrt(sq(dl / (pl * sl)) + sq(dc / (pc * sc)) + sq(dh / sh))
     return 0
 
@@ -444,7 +450,10 @@ def mcm_cart_to_lch(src_addr: Int, dst_addr: Int, n: Int) abi("C") -> Int32:
         var j = 3 * i
         dst[j] = src[j]
         dst[j + 1] = sqrt(src[j + 1] * src[j + 1] + src[j + 2] * src[j + 2])
-        dst[j + 2] = hue_degrees(src[j + 2], src[j + 1])
+        var hue = hue_degrees(src[j + 2], src[j + 1])
+        if hue == 0.0:  # matches colormath.color_conversions.Lab_to_LCHab (lch_h>0 test maps 0 to 360)
+            hue = 360.0
+        dst[j + 2] = hue
     return 0
 
 
@@ -520,18 +529,20 @@ def mcm_srgb_to_xyz(src_addr: Int, dst_addr: Int, n: Int) abi("C") -> Int32:
         var r = src[j]
         var g = src[j + 1]
         var b = src[j + 2]
-        r = r / 12.92 if r <= 0.04045 else ((r + 0.055) / 1.055) ** 2.4
-        g = g / 12.92 if g <= 0.04045 else ((g + 0.055) / 1.055) ** 2.4
-        b = b / 12.92 if b <= 0.04045 else ((b + 0.055) / 1.055) ** 2.4
-        dst[j] = max(0.0, 0.412424 * r + 0.357579 * g + 0.180464 * b)
-        dst[j + 1] = max(0.0, 0.212656 * r + 0.715158 * g + 0.0721856 * b)
-        dst[j + 2] = max(0.0, 0.0193324 * r + 0.119193 * g + 0.950444 * b)
+        r = r / 12.92 if r <= 0.04045 else srgb_pow((r + 0.055) / 1.055)  # matches colormath.color_conversions.RGB_to_XYZ (math.pow)
+        g = g / 12.92 if g <= 0.04045 else srgb_pow((g + 0.055) / 1.055)  # matches colormath.color_conversions.RGB_to_XYZ (math.pow)
+        b = b / 12.92 if b <= 0.04045 else srgb_pow((b + 0.055) / 1.055)  # matches colormath.color_conversions.RGB_to_XYZ (math.pow)
+        dst[j] = clip_min0(0.412424 * r + 0.357579 * g + 0.180464 * b)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
+        dst[j + 1] = clip_min0(0.212656 * r + 0.715158 * g + 0.0721856 * b)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
+        dst[j + 2] = clip_min0(0.0193324 * r + 0.119193 * g + 0.950444 * b)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
     return 0
 
 
-def srgb_gamma(v: Float64) -> Float64:
+def srgb_gamma(v: Float64) -> Float64:  # matches colormath.color_conversions.XYZ_to_RGB (math.pow)
     if v <= 0.0031308:
         return v * 12.92
+    if v != v:  # matches colormath.color_conversions.XYZ_to_RGB (math.pow NaN preserved)
+        return v
     return 1.055 * (v ** (1.0 / 2.4)) - 0.055
 
 
@@ -548,9 +559,9 @@ def mcm_xyz_to_srgb(src_addr: Int, dst_addr: Int, n: Int) abi("C") -> Int32:
         var x = src[j]
         var y = src[j + 1]
         var z = src[j + 2]
-        var r = max(0.0, 3.24071 * x - 1.53726 * y - 0.498571 * z)
-        var g = max(0.0, -0.969258 * x + 1.87599 * y + 0.0415557 * z)
-        var b = max(0.0, 0.0556352 * x - 0.203996 * y + 1.05707 * z)
+        var r = clip_min0(3.24071 * x - 1.53726 * y - 0.498571 * z)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
+        var g = clip_min0(-0.969258 * x + 1.87599 * y + 0.0415557 * z)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
+        var b = clip_min0(0.0556352 * x - 0.203996 * y + 1.05707 * z)  # matches colormath.color_conversions.apply_RGB_matrix (max(x, 0.0))
         dst[j] = srgb_gamma(r)
         dst[j + 1] = srgb_gamma(g)
         dst[j + 2] = srgb_gamma(b)

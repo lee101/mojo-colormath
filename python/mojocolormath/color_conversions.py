@@ -207,9 +207,9 @@ def convert_color(
         if through_rgb_type is not sRGBColor:
             raise UndefinedConversionError(color.__class__, target_cs)
         return Lab_to_XYZ(color)
-    if isinstance(target_cs, str) or not isinstance(target_cs, type):
+    if isinstance(target_cs, str):
         raise ValueError("target_cs parameter must be a Color object.")
-    if not issubclass(target_cs, ColorBase):
+    if not issubclass(target_cs, ColorBase):  # matches colormath.color_conversions.convert_color (TypeError for non-classes)
         raise ValueError("target_cs parameter must be a Color object.")
     if through_rgb_type is not sRGBColor:
         raise UndefinedConversionError(color.__class__, target_cs)
@@ -235,6 +235,10 @@ def convert_color_array(
     target_illuminant=None,
 ):
     """Convert an ``(n, 3)`` array in one call per conversion edge."""
+    if isinstance(target_cs, str):
+        raise ValueError("target_cs parameter must be a Color object.")
+    if not issubclass(target_cs, ColorBase):  # matches colormath.color_conversions.convert_color
+        raise ValueError("target_cs parameter must be a Color object.")
     array, scalar = f64_triplets(colors)
     current = source_cs
     current_illuminant = (
